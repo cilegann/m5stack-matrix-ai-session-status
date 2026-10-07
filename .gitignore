@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+backup/
+.tools/
+*.log
+.env
+.env.*
+device/vendor/m5-tree.json
+device/vendor/IMU_Class.*
+device/vendor/BMI270_Class.*
