@@ -1,7 +1,7 @@
-"""M5Stack ATOM Matrix: four agent-status demo animations.
+"""M5Stack ATOM Matrix: four agent-status animations with sleep mode.
 
 25 WS2812 LEDs on GPIO27; front button GPIO39 (external pull-up).
-Press the face to change mode; each animation repeats until the next press.
+Press the face to sleep or wake; one unchanged hour also turns the LEDs off.
 RGB components stay at or below 40/255 to keep brightness comfortable.
 """
 from machine import Pin
@@ -20,9 +20,31 @@ IDLE_MS = 4200
 ATTENTION_MS = 4200
 WATERFALL_MS = 2100
 DONE_MS = 7000
+SLEEP_AFTER_MS = 60 * 60 * 1000
 NAMES = ('DONE', 'RUNNING', 'ATTENTION', 'IDLE')
 CHECK = ((0, 2), (1, 3), (2, 2), (3, 1), (4, 0))
 rotation = 0
+
+
+class SleepMode:
+    def __init__(self, now):
+        self.sleeping = False
+        self.unchanged_since = now
+
+    def state_changed(self, now):
+        self.unchanged_since = now
+
+    def press(self, now):
+        self.sleeping = not self.sleeping
+        if not self.sleeping:
+            self.unchanged_since = now
+
+    def check_timeout(self, now):
+        if (not self.sleeping and
+                time.ticks_diff(now, self.unchanged_since) >= SLEEP_AFTER_MS):
+            self.sleeping = True
+            return True
+        return False
 
 
 def pixel(x, y, color, level=1.0):
@@ -93,12 +115,13 @@ def run():
         gravity = None
         print('IMU ERROR', error)
     start = time.ticks_ms()
+    sleep = SleepMode(start)
     raw_previous = button.value()
     stable = raw_previous
     changed = start
     last_imu = start
     imu_errors = 0
-    print('MATRIX_DEMO READY; mode=usb; button=next; animation=repeat')
+    print('MATRIX_DEMO READY; mode=usb; button=sleep/wake; timeout=1h')
     print('STATE', NAMES[state])
     while True:
         now = time.ticks_ms()
@@ -122,11 +145,20 @@ def run():
         elapsed = time.ticks_diff(now, start)
         duration = (DONE_MS, WATERFALL_MS, ATTENTION_MS, IDLE_MS)[state]
         if pressed:
-            state = (state + 1) % 4
-            start = now
-            elapsed = 0
-            print('STATE', NAMES[state])
-        elif elapsed >= duration:
+            sleep.press(now)
+            if sleep.sleeping:
+                leds.fill((0, 0, 0))
+                leds.write()
+                print('SLEEP BUTTON')
+            else:
+                start = now
+                elapsed = 0
+                print('WAKE', NAMES[state])
+        elif sleep.check_timeout(now):
+            leds.fill((0, 0, 0))
+            leds.write()
+            print('SLEEP TIMEOUT')
+        elif not sleep.sleeping and elapsed >= duration:
             # Preserve the frame's overshoot instead of pausing at the seam.
             start = time.ticks_add(start, duration)
             elapsed = time.ticks_diff(now, start)
@@ -149,10 +181,12 @@ def run():
                 state = command['state']
                 start = now
                 elapsed = 0
+                sleep.state_changed(now)
                 print('STATE', NAMES[state])
             print(json.dumps({'id': command['id'], 'ok': True, 'state': STATES[state],
                               'device': 'm5stack-matrix-agent', 'protocol': 1}))
-        render(state, elapsed)
+        if not sleep.sleeping:
+            render(state, elapsed)
         time.sleep_ms(30)
 
 

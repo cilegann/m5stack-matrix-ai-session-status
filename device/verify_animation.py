@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import time
 time.ticks_diff = lambda a, b: a - b
+time.ticks_add = lambda a, b: a + b
 
 
 class Pixels:
@@ -122,6 +123,24 @@ before = tuple(animation.leds.data)
 animation.render(0, 0)
 assert tuple(animation.leds.data) == before
 print('PASS: green hold and seamless fade/restart')
+
+# One unchanged hour sleeps; commands only reset the timer when state changes.
+sleep = animation.SleepMode(100)
+assert not sleep.check_timeout(100 + animation.SLEEP_AFTER_MS - 1)
+sleep.state_changed(1000)
+assert not sleep.check_timeout(1000 + animation.SLEEP_AFTER_MS - 1)
+assert sleep.check_timeout(1000 + animation.SLEEP_AFTER_MS)
+assert sleep.sleeping
+assert not sleep.check_timeout(1000 + animation.SLEEP_AFTER_MS + 1)
+sleep.state_changed(2000)
+assert sleep.sleeping, 'A USB state change must not wake the LEDs'
+sleep.press(3000)
+assert not sleep.sleeping and sleep.unchanged_since == 3000
+sleep.press(4000)
+assert sleep.sleeping, 'The button must also enter sleep immediately'
+sleep.press(5000)
+assert not sleep.sleeping and sleep.unchanged_since == 5000
+print('PASS: one-hour and button sleep; only button wakes current state')
 
 # Every rotation is a bijection and preserves the rendered pixels/colors.
 for state in range(4):
