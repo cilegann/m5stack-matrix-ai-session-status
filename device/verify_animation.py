@@ -44,7 +44,8 @@ for state in range(4):
     for elapsed in range(0, 5000, 30):
         animation.render(state, elapsed)
         frames.add(tuple(animation.leds.data))
-    assert len(frames) > 10, 'Animation must change over time'
+    minimum_frames = 4 if state == 2 else 10
+    assert len(frames) >= minimum_frames, 'Animation must change over time'
     animation.render(state, 1000)
     active = [c for c in animation.leds.data if any(c)]
     assert active, 'Each state must illuminate pixels'
@@ -57,6 +58,17 @@ for state in range(4):
     else:
         assert all(b > r and b > g for r, g, b in active)
     print(animation.NAMES[state], len(frames), 'distinct frames: OK')
+
+# Red expands and contracts without flashing: off, center, 3x3, full, 3x3, center, off.
+for elapsed, expected in ((0, 0), (299, 0), (300, 1), (599, 1),
+                          (600, 9), (899, 9), (900, 25), (2099, 25),
+                          (2100, 9), (2399, 9), (2400, 1), (2699, 1),
+                          (2700, 0), (2999, 0), (3000, 0)):
+    animation.render(2, elapsed)
+    active = [c for c in animation.leds.data if any(c)]
+    assert len(active) == expected, 'Unexpected red layer at %dms' % elapsed
+    assert all(c == (40, 0, 0) for c in active)
+print('PASS: red expands, holds, and contracts without flashing')
 
 # Regression: yellow must stay lit past 5s and cross its period without a jump.
 for elapsed in (0, 2070, 2099, 2100, 2130, 4999, 5000, 5030, 6000):
