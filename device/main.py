@@ -51,20 +51,21 @@ def render(state, elapsed):
                 level = (0.5 + 0.5 * math.cos(2 * math.pi * distance / 7)) ** 2
                 pixel(x, y, (36, 25, 0), level)
     elif state == 2:
-        # Breathe out through the three square layers, hold, then breathe in.
+        # Smoothly breathe through the three square layers, with a long full hold.
         phase = elapsed % ATTENTION_MS
-        if phase < 300 or phase >= 2700:
-            radius_limit = -1
-        elif phase < 600 or phase >= 2400:
-            radius_limit = 0
-        elif phase < 900 or phase >= 2100:
-            radius_limit = 1
-        else:
-            radius_limit = 2
         for y in range(5):
             for x in range(5):
-                if max(abs(x - 2), abs(y - 2)) <= radius_limit:
-                    pixel(x, y, (40, 0, 0))
+                radius = max(abs(x - 2), abs(y - 2))
+                if phase < 900:
+                    progress = min(1.0, max(0.0, (phase - radius * 300) / 300))
+                    glow = progress * progress * (3 - 2 * progress)
+                elif phase < 2100:
+                    glow = 1.0
+                else:
+                    start = 2100 + (2 - radius) * 300
+                    progress = min(1.0, max(0.0, (phase - start) / 300))
+                    glow = 1 - progress * progress * (3 - 2 * progress)
+                pixel(x, y, (40, 0, 0), glow)
     else:
         # Quiet blue water: a wide rolling crest over a dim lower body.
         for x in range(5):
