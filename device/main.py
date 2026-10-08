@@ -31,8 +31,12 @@ class SleepMode:
         self.sleeping = False
         self.unchanged_since = now
 
-    def state_changed(self, now):
+    def update_for_state(self, current, requested, now):
+        if current == requested:
+            return False
+        self.sleeping = False
         self.unchanged_since = now
+        return True
 
     def press(self, now):
         self.sleeping = not self.sleeping
@@ -177,11 +181,11 @@ def run():
                 print(json.dumps({'id': command['id'], 'ok': False,
                                   'error': command['error']}))
                 continue
-            if command['op'] == 'set' and state != command['state']:
+            if command['op'] == 'set' and sleep.update_for_state(
+                    state, command['state'], now):
                 state = command['state']
                 start = now
                 elapsed = 0
-                sleep.state_changed(now)
                 print('STATE', NAMES[state])
             print(json.dumps({'id': command['id'], 'ok': True, 'state': STATES[state],
                               'device': 'm5stack-matrix-agent', 'protocol': 1}))

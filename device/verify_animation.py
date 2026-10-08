@@ -124,23 +124,28 @@ animation.render(0, 0)
 assert tuple(animation.leds.data) == before
 print('PASS: green hold and seamless fade/restart')
 
-# One unchanged hour sleeps; commands only reset the timer when state changes.
+# One unchanged hour sleeps; only a different state or button wakes it.
 sleep = animation.SleepMode(100)
 assert not sleep.check_timeout(100 + animation.SLEEP_AFTER_MS - 1)
-sleep.state_changed(1000)
+assert sleep.update_for_state(3, 1, 1000)
 assert not sleep.check_timeout(1000 + animation.SLEEP_AFTER_MS - 1)
 assert sleep.check_timeout(1000 + animation.SLEEP_AFTER_MS)
 assert sleep.sleeping
 assert not sleep.check_timeout(1000 + animation.SLEEP_AFTER_MS + 1)
-sleep.state_changed(2000)
-assert sleep.sleeping, 'A USB state change must not wake the LEDs'
-sleep.press(3000)
+assert not sleep.update_for_state(1, 1, 2000)
+assert sleep.sleeping, 'The same USB state must not wake the LEDs'
+assert sleep.unchanged_since == 1000
+assert sleep.update_for_state(1, 2, 3000)
 assert not sleep.sleeping and sleep.unchanged_since == 3000
+assert not sleep.check_timeout(3000 + animation.SLEEP_AFTER_MS - 1)
+assert sleep.check_timeout(3000 + animation.SLEEP_AFTER_MS)
 sleep.press(4000)
-assert sleep.sleeping, 'The button must also enter sleep immediately'
+assert not sleep.sleeping and sleep.unchanged_since == 4000
 sleep.press(5000)
-assert not sleep.sleeping and sleep.unchanged_since == 5000
-print('PASS: one-hour and button sleep; only button wakes current state')
+assert sleep.sleeping, 'The button must also enter sleep immediately'
+sleep.press(6000)
+assert not sleep.sleeping and sleep.unchanged_since == 6000
+print('PASS: one-hour sleep; changed state or button wakes and restarts timer')
 
 # Every rotation is a bijection and preserves the rendered pixels/colors.
 for state in range(4):
