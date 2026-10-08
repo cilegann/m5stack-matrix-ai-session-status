@@ -17,7 +17,7 @@ from device_protocol import Receiver, STATES
 leds = neopixel.NeoPixel(Pin(27), 25)
 button = Pin(39, Pin.IN)
 IDLE_MS = 4200
-ATTENTION_MS = 3000
+ATTENTION_MS = 4200
 WATERFALL_MS = 2100
 DONE_MS = 7000
 NAMES = ('DONE', 'RUNNING', 'ATTENTION', 'IDLE')
@@ -51,20 +51,20 @@ def render(state, elapsed):
                 level = (0.5 + 0.5 * math.cos(2 * math.pi * distance / 7)) ** 2
                 pixel(x, y, (36, 25, 0), level)
     elif state == 2:
-        # Smoothly breathe through the three square layers, with a long full hold.
+        # A slow cosine breath ripples out, rests at full size, then ripples in.
         phase = elapsed % ATTENTION_MS
         for y in range(5):
             for x in range(5):
                 radius = max(abs(x - 2), abs(y - 2))
-                if phase < 900:
-                    progress = min(1.0, max(0.0, (phase - radius * 300) / 300))
-                    glow = progress * progress * (3 - 2 * progress)
-                elif phase < 2100:
+                if phase < 1500:
+                    progress = min(1.0, max(0.0, (phase - radius * 450) / 600))
+                    glow = 0.5 - 0.5 * math.cos(math.pi * progress)
+                elif phase < 2700:
                     glow = 1.0
                 else:
-                    start = 2100 + (2 - radius) * 300
-                    progress = min(1.0, max(0.0, (phase - start) / 300))
-                    glow = 1 - progress * progress * (3 - 2 * progress)
+                    start = 2700 + (2 - radius) * 450
+                    progress = min(1.0, max(0.0, (phase - start) / 600))
+                    glow = 0.5 + 0.5 * math.cos(math.pi * progress)
                 pixel(x, y, (40, 0, 0), glow)
     else:
         # Quiet blue water: a wide rolling crest over a dim lower body.

@@ -58,26 +58,32 @@ for state in range(4):
         assert all(b > r and b > g for r, g, b in active)
     print(animation.NAMES[state], len(frames), 'distinct frames: OK')
 
-# Red smoothly expands and contracts: off, center, 3x3, full, 3x3, center, off.
-def red_levels(elapsed):
+# Red breathes slowly: off, center, 3x3, full, 3x3, center, off.
+def red_rings(elapsed):
     animation.render(2, elapsed)
-    return tuple(sorted({c[0] for c in animation.leds.data}))
+    return tuple(animation.leds.data[index][0] for index in (12, 7, 2))
 
-for elapsed, expected in ((0, (0,)), (150, (0, 20)), (300, (0, 40)),
-                          (450, (0, 20, 40)), (600, (0, 40)),
-                          (750, (20, 40)), (900, (40,)), (2099, (40,)),
-                          (2250, (20, 40)), (2400, (0, 40)),
-                          (2550, (0, 20, 40)), (2700, (0, 40)),
-                          (2850, (0, 20)), (2999, (0,)), (3000, (0,))):
-    assert red_levels(elapsed) == expected, 'Unexpected red levels at %dms' % elapsed
-for start, end in ((0, 300), (300, 600), (600, 900),
-                   (2100, 2400), (2400, 2700), (2700, 3000)):
+for elapsed, expected in ((0, (0, 0, 0)), (300, (19, 0, 0)),
+                          (600, (40, 5, 0)), (750, (40, 19, 0)),
+                          (1050, (40, 40, 5)), (1200, (40, 40, 19)),
+                          (1500, (40, 40, 40)), (2699, (40, 40, 40)),
+                          (3000, (40, 40, 20)), (3150, (40, 40, 5)),
+                          (3450, (40, 20, 0)), (3600, (40, 5, 0)),
+                          (3900, (20, 0, 0)), (4199, (0, 0, 0)),
+                          (4200, (0, 0, 0))):
+    assert red_rings(elapsed) == expected, 'Unexpected red rings at %dms' % elapsed
+for start, end in ((0, 600), (450, 1050), (900, 1500),
+                   (2700, 3300), (3150, 3750), (3600, 4200)):
     frames = set()
     for elapsed in range(start, end, 30):
         animation.render(2, elapsed)
         frames.add(tuple(animation.leds.data))
-    assert len(frames) >= 9, 'Red transition must be smooth at %dms' % start
-print('PASS: red smoothly expands, holds, and contracts without flashing')
+    assert len(frames) >= 15, 'Red transition must breathe smoothly at %dms' % start
+animation.render(2, animation.ATTENTION_MS - 1)
+before = tuple(animation.leds.data)
+animation.render(2, 0)
+assert max(abs(a[0] - b[0]) for a, b in zip(before, animation.leds.data)) <= 1
+print('PASS: red breathes smoothly, holds, and loops without flashing')
 
 # Regression: yellow must stay lit past 5s and cross its period without a jump.
 for elapsed in (0, 2070, 2099, 2100, 2130, 4999, 5000, 5030, 6000):
